@@ -1,13 +1,22 @@
 package com.ishhf.aichat;
 
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 
 @CapacitorPlugin(name = "PhonePlugin")
 public class PhonePlugin extends Plugin {
@@ -95,5 +104,49 @@ public class PhonePlugin extends Plugin {
         JSObject r = new JSObject();
         r.put("on", QAccService.transIsOn());
         call.resolve(r);
+    }
+
+    private static OutputStream vos;
+
+    // حفظ فيديو على دفعات (base64) داخل Movies/Qasim
+    @PluginMethod
+    public void saveChunk(PluginCall call) {
+        try {
+            String name = call.getString("name", "qasim.webm");
+            String mime = call.getString("mime", "video/webm");
+            String data = call.getString("data", "");
+            boolean first = call.getBoolean("first", false);
+            boolean last = call.getBoolean("last", false);
+            byte[] b = android.util.Base64.decode(data, android.util.Base64.DEFAULT);
+            if (first) {
+                if (vos != null) {
+                    try { vos.close(); } catch (Exception e) {}
+                    vos = null;
+                }
+                if (Build.VERSION.SDK_INT >= 29) {
+                    ContentResolver cr = getContext().getContentResolver();
+                    ContentValues v = new ContentValues();
+                    v.put(MediaStore.Video.Media.DISPLAY_NAME, name);
+                    v.put(MediaStore.Video.Media.MIME_TYPE, mime);
+                    v.put(MediaStore.Video.Media.RELATIVE_PATH, Environment.DIRECTORY_MOVIES + "/Qasim");
+                    Uri uri = cr.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, v);
+                    if (uri == null) { call.reject("insert failed"); return; }
+                    vos = cr.openOutputStream(uri);
+                } else {
+                    File d = getContext().getExternalFilesDir(Environment.DIRECTORY_MOVIES);
+                    if (d != null) d.mkdirs();
+                    vos = new FileOutputStream(new File(d, name));
+                }
+            }
+            if (vos == null) { call.reject("no stream"); return; }
+            vos.write(b);
+            if (last) {
+                vos.close();
+                vos = null;
+            }
+            call.resolve();
+        } catch (Exception e) {
+            call.reject(String.valueOf(e));
+        }
     }
 }

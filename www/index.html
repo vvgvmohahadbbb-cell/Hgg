@@ -349,6 +349,9 @@ header .ic:active{background:var(--card2);border-color:var(--bd2)}
 .sw2{width:40px;height:40px;border-radius:50%;border:2px solid transparent;padding:0;margin:0}
 .sw2.on{border-color:#fff;transform:scale(1.12)}
 .msb .mo.on{border-color:var(--ac)}
+
+.iac{display:flex;gap:6px;overflow-x:auto;margin-top:6px;scrollbar-width:none;width:100%}.iac::-webkit-scrollbar{display:none}
+.iac button{flex:none;height:32px;padding:0 12px;border-radius:999px;background:var(--card);border:1px solid var(--bd);color:var(--tx);font-size:12px;font-weight:600;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -411,6 +414,7 @@ document.addEventListener('input',function(e){if(e.target&&e.target.id==='inp'){
   <div class="sc"><div class="st">🔒 الأمان</div><div class="sd">يشفّر بياناتك بالرمز. إذا نسيته ما في استرجاع.</div>
     <input id="pin" type="password" inputmode="numeric" placeholder="رمز جديد (4 خانات أو أكثر)">
     <div class="row" style="margin-top:10px"><button class="btn s" onclick="setPin()">تفعيل القفل</button><button class="btn s" onclick="rmPin()">إلغاء القفل</button></div></div>
+  <div class="sc"><div class="st">📡 الاتصال بالذكاء</div><div class="sd">إذا ظهر لك خطأ 503 أو «تعذر الاتصال»، افحص السكربت من هنا.</div><button class="btn s" onclick="pingServer()">فحص الاتصال بالسكربت</button><div id="pgst" class="sd" style="margin-top:8px"></div></div>
   <div class="sc"><div class="st">🎨 المظهر والأدوات</div><div class="sd">اختر لون التطبيق، وافتح إحصائياتك ومحفوظاتك.</div><div id="thsw"></div><div class="row" style="margin-top:12px"><button class="btn s" onclick="$('set').classList.remove('on');openStats()">📊 إحصائياتي</button><button class="btn s" onclick="$('set').classList.remove('on');openBM()">🔖 المحفوظات</button></div></div>
   <div class="sc"><div class="st">🧠 الذكاء بدون نت</div><div class="sd">مجاني بالكامل، لكنه أضعف وأبطأ من الذكاء السحابي.</div>
     <div id="lmbox">
@@ -485,9 +489,9 @@ function delChat(id){if(!confirm('حذف المحادثة؟'))return;chats=chats
 if(!chats.length)newChat();else openChat(cid&&cur()?cid:chats[0].id);
 
 // ---------- الصور ----------
-$('pic').onchange=async e=>{for(const f of [...e.target.files].slice(0,4)){if(!f.type.startsWith('image')){try{docs.push({n:f.name,t:(await f.text()).slice(0,30000)})}catch(x){}continue}if(imgs.length>=4)break;try{const b=await createImageBitmap(f),s=Math.min(1,1024/Math.max(b.width,b.height)),c=document.createElement('canvas');c.width=Math.round(b.width*s);c.height=Math.round(b.height*s);c.getContext('2d').drawImage(b,0,0,c.width,c.height);imgs.push(c.toDataURL('image/jpeg',.8))}catch(x){}}e.target.value='';thumbs()};
+$('pic').onchange=async e=>{for(const f of [...e.target.files].slice(0,4)){if(!f.type.startsWith('image')){try{docs.push({n:f.name,t:(await f.text()).slice(0,30000)})}catch(x){}continue}if(imgs.length>=4)break;try{const b=await createImageBitmap(f),s=Math.min(1,1280/Math.max(b.width,b.height)),c=document.createElement('canvas');c.width=Math.round(b.width*s);c.height=Math.round(b.height*s);c.getContext('2d').drawImage(b,0,0,c.width,c.height);imgs.push(c.toDataURL('image/jpeg',.85))}catch(x){}}e.target.value='';thumbs()};
 $('cam').onchange=$('pic').onchange;
-function thumbs(){$('th').innerHTML=imgs.map((s,i)=>`<div><img src="${s}"><b onclick="imgs.splice(${i},1);thumbs()">✕</b></div>`).join('')+docs.map((d,i)=>`<div class="dc">📄 ${esc(d.n)} <span onclick="docs.splice(${i},1);thumbs()">✕</span></div>`).join('')}
+function thumbs(){$('th').innerHTML=imgs.map((s,i)=>`<div><img src="${s}"><b onclick="imgs.splice(${i},1);thumbs()">✕</b></div>`).join('')+docs.map((d,i)=>`<div class="dc">📄 ${esc(d.n)} <span onclick="docs.splice(${i},1);thumbs()">✕</span></div>`).join('')+(imgs.length?'<div class="iac">'+IQ.map((q,i)=>'<button onclick="iq('+i+')">'+q[0]+'</button>').join('')+'</div>':'')}
 
 // ---------- المحادثة ----------
 const SYS={
@@ -511,7 +515,7 @@ function typeStream(txt){const enc=new TextEncoder();let i=0;
 async function gasPost(body){
   const want=!!body.stream,b={...body};delete b.stream;let r;
   try{r=await fetch(PU,{method:'POST',signal:ac.signal,body:JSON.stringify({path:'chat',dev:DEV,body:b})})}
-  catch(e){if(e.name==='AbortError')throw e;return new Response(JSON.stringify({error:{message:'تعذر الاتصال بالخادم'}}),{status:503})}
+  catch(e){if(e.name==='AbortError')throw e;return new Response(JSON.stringify({error:{message:navigator.onLine?'تعذر الوصول للسكربت (503): تأكد أن نشره للجميع وأن الرابط صحيح، أو افحص الاتصال من الإعدادات':'لا يوجد اتصال بالإنترنت'}}),{status:503})}
   let j={};try{j=await r.json()}catch(e){}
   const st=+j.status||502,d=j.data||{error:{message:j.error||'خطأ في الخادم'}};
   if(st<200||st>=300)return new Response(JSON.stringify(d),{status:st});
@@ -537,7 +541,8 @@ async function callOnce(models,messages,eff,max,xs){let err='';
     const t=((await r.json()).choices[0].message.content||'').replace(/<think>[\s\S]*?<\/think>/g,'').trim();if(t)return t;err='رد فاضي'}
     catch(e){if(e.name==='AbortError'||is401(e.message))throw e;err=e.message}}
   throw new Error(err||'رد فاضي')}
-async function streamTo(models,messages,eff,max,onText,xs){if(useLocal())return lmGen(messages,max,onText);let err='',acc='';
+async function streamTo(models,messages,eff,max,onText,xs){try{return await streamTo0(models,messages,eff,max,onText,xs)}catch(e){if(e&&e.name!=='AbortError'&&lm.url&&lm.mode==='auto'&&/503|الاتصال|الوصول للسكربت|الإنترنت/.test(String(e.message||e)))return lmGen(messages,max,onText);throw e}}
+async function streamTo0(models,messages,eff,max,onText,xs){if(useLocal())return lmGen(messages,max,onText);let err='',acc='';
   for(const m of models)for(const ex of (xs||[{}])){try{
     const r=await post({model:m,messages,stream:true,...PP(m,eff,max,ex)});
     if(!r.ok){err=await errOf(r);if(is401(err))throw new Error(err);continue}
@@ -576,7 +581,7 @@ el.classList.add('sp');el.textContent='⏹ إيقاف';
 u.onend=u.onerror=()=>{el.classList.remove('sp');el.textContent='🔊 اقرأ'};ss.speak(u)}catch(e){toast('⚠️ تعذر النطق')}}
 function shr(el){const t=msgText(el);if(navigator.share){navigator.share({text:t}).catch(()=>{})}else cpy(el)}
 const TOOLS=[['✂️ تلخيص','يلخّص نصاً طويلاً في نقاط','لخّص لي النص التالي في نقاط قصيرة وواضحة:\n\n'],['🌍 ترجمة','عربي وإنجليزي بدقة','ترجم النص التالي إلى العربية (وإن كان عربياً فإلى الإنجليزية) مع الحفاظ على المعنى والأسلوب:\n\n'],['✅ تصحيح لغوي','إملاء ونحو بدون تغيير المعنى','صحّح الأخطاء الإملائية والنحوية في النص التالي دون تغيير المعنى، ثم اذكر أهم التعديلات:\n\n'],['💡 تبسيط','شرح سهل مع مثال','اشرح لي التالي ببساطة كأني أسمع عنه لأول مرة، مع مثال واقعي:\n\n'],['📩 رسالة رسمية','بريد أو طلب مهذب','اكتب رسالة رسمية مهذبة ومختصرة بخصوص: '],['🧠 عصف أفكار','10 أفكار مبتكرة','أعطني 10 أفكار مبتكرة وقابلة للتنفيذ عن: '],['💻 شرح كود','سطراً بسطر مع الأخطاء','اشرح لي الكود التالي سطراً بسطر واذكر أي أخطاء أو تحسينات ممكنة:\n\n'],['📅 خطة عملية','خطوات مرتبة بالأيام','ضع لي خطة عملية مرتبة بالأيام لتحقيق: '],['⚖️ مقارنة','جدول مختصر مع توصية','قارن بين الشيئين التاليين في جدول مختصر ثم أعطني توصية واضحة: '],['🍳 وصفة','من مكونات عندك','اقترح لي وصفة سهلة وسريعة من المكونات التالية: ']];
-function openTools(){$('ms').querySelector('b').textContent='🧰 أدوات سريعة';$('msl').innerHTML='<button class="mo" onclick="qzOpen()">📝 اختبرني<small>أسئلة تفاعلية من أي موضوع أو نص، مع شرح وتقييم</small></button><button class="mo" onclick="summChat()">🧾 لخّص هذه المحادثة<small>ملخص ونقاط ومهام من محادثتك الحالية</small></button>'+TOOLS.map((m,i)=>'<button class="mo" onclick="pickTool('+i+')">'+m[0]+'<small>'+m[1]+'</small></button>').join('');$('ms').classList.add('on')}
+function openTools(){$('ms').querySelector('b').textContent='🧰 أدوات سريعة';$('msl').innerHTML='<button class="mo" onclick="qzOpen()">📝 اختبرني<small>أسئلة تفاعلية من أي موضوع أو نص، مع شرح وتقييم</small></button><button class="mo" onclick="vdOpen()">🎬 صانع فيديو بالذكاء الاصطناعي<small>سيناريو + مشاهد مرسومة + حركة + نصوص + موسيقى</small></button><button class="mo" onclick="summChat()">🧾 لخّص هذه المحادثة<small>ملخص ونقاط ومهام من محادثتك الحالية</small></button>'+TOOLS.map((m,i)=>'<button class="mo" onclick="pickTool('+i+')">'+m[0]+'<small>'+m[1]+'</small></button>').join('');$('ms').classList.add('on')}
 function pickTool(i){closeModes();const v=TOOLS[i][2];$('inp').value=v;$('inp').focus();try{$('inp').setSelectionRange(v.length,v.length)}catch(e){}}
 let eco=!!ls.get('eco',false);
 function ecoBtn(){const b=$('eco');if(!b)return;b.className=eco?'on':'';b.textContent=eco?'🌿 توفير ✓':'🌿 توفير'}
@@ -1229,6 +1234,80 @@ async function summChat(){try{closeModes()}catch(e){}const c=cur();if(!c||c.msgs
   try{const out=await streamTo(await planM(false),[{role:'system',content:'لخّص المحادثة التالية بالعربية بهذا التنسيق: **الملخص** (3 أسطر كحد أقصى)، **أهم النقاط** (نقاط قصيرة)، **قرارات أو مهام للمتابعة** (إن وُجدت). كن دقيقاً ولا تضف معلومات غير موجودة.'},{role:'user',content:tx}],'low',900,()=>{});
     window.SUMM=out;pg('🧾 ملخص المحادثة','<div class="qzw" style="line-height:1.9">'+md(out)+'</div><div class="row" style="gap:8px;margin-top:12px"><button class="btn s" style="flex:1" onclick="summCopy()">نسخ</button><button class="btn s" style="flex:1" onclick="pgClose()">إغلاق</button></div>')}
   catch(e){refund(2);pg('🧾 ملخص المحادثة','<p class="edh">تعذر: '+esc(e.message||e)+'</p>')}}
+
+async function pingServer(){const o=$('pgst');if(!o)return;o.textContent='⏳ جاري الفحص…';const t0=Date.now();
+  if(!navigator.onLine){o.textContent='❌ لا يوجد إنترنت بالجوال';return}
+  try{const r=await fetch(PU+'?path=chat',{cache:'no-store'}),tx=await r.text(),ms=Date.now()-t0;
+    if(/غير مضبوط/.test(tx))o.textContent='⚠️ السكربت يشتغل لكن مفاتيح Groq غير مضبوطة (GROQ_KEYS بـ Script properties)';
+    else if(r.ok&&tx.length<4000&&/^\s*[\[{"]/.test(tx))o.textContent='✅ السكربت يرد ('+ms+'ms). إذا الذكاء ما يجاوب فالمشكلة بالمفاتيح أو حصة Groq.';
+    else o.textContent='⚠️ رد غير متوقع من الرابط. غالباً النشر ليس «أي شخص» أو تم حذفه: أعد نشره بإصدار جديد.'}
+  catch(e){o.textContent='❌ لا أستطيع الوصول للسكربت. تحقق من: الرابط بـ config، النشر للجميع (Anyone)، أو انتهاء حصة جوجل اليومية (جرّب بعد ساعات).'}}
+
+const VISP=' بروتوكول تحليل الصور: لاحظ التفاصيل بدقة قبل الجواب. ابدأ بما تراه فعلاً (العناصر والنصوص حرفياً والأرقام والألوان) ثم أجب عن سؤال المستخدم. إذا كانت الصورة مسألة (رياضيات أو فيزياء أو جدول أو كود) فاستخرج المعطيات منها بدقة وأعد كتابتها ثم حلّها خطوة بخطوة وتحقق من الجواب. إذا كانت وثيقة أو لقطة شاشة فلخّص وأخرج النقاط المهمة. لا تخمّن ما لا يظهر؛ وإذا كانت الصورة غير واضحة أو مقطوعة فقل ذلك واطلب صورة أوضح. عند وجود عدة صور فقارن بينها واربط ما بينها.';
+const IQ=[['📖 استخرج النص','استخرج كل النص الظاهر بالصورة حرفياً وبنفس الترتيب والتنسيق.'],['🧠 اشرح الصورة','اشرح لي ما في الصورة بالتفصيل وما دلالته.'],['🧮 حل المسألة','هذه مسألة بالصورة: استخرج المعطيات بدقة ثم حلّها خطوة بخطوة وتحقق من الجواب.'],['🌍 ترجم النص','ترجم كل النص الظاهر بالصورة إلى العربية مع الحفاظ على ترتيبه.'],['🎨 قيّم التصميم','قيّم تصميم هذه الصورة بصراحة: نقاط القوة والضعف وتحسينات محددة.'],['🪄 صف للتوليد','اكتب وصفاً إنجليزياً دقيقاً (prompt) يعيد توليد صورة مشابهة بالذكاء الاصطناعي.'],['🔍 ماذا ترى؟','صف ما تراه بدقة ثم أخبرني بأي شيء غير عادي أو مهم بها.']];
+function iq(i){$('inp').value=IQ[i][1];send()}
+
+// ---------- صانع الفيديو بالذكاء الاصطناعي (سيناريو + صور + حركة + موسيقى) ----------
+let VD={blob:null};
+const VSTY={cine:'cinematic still, dramatic lighting, shallow depth of field, color graded',real:'ultra realistic photograph, natural light, sharp focus',anime:'high quality anime illustration, vibrant colors, clean lines',cartoon:'3D cartoon animation style, colorful, soft lighting',water:'soft watercolor illustration, gentle colors',art:'digital painting, rich colors, detailed concept art'};
+function vdClean(j,n){const a=(j&&Array.isArray(j.scenes))?j.scenes:[];return a.map(x=>x&&x.cap&&x.img?{cap:String(x.cap).slice(0,120),img:String(x.img).slice(0,300)}:null).filter(Boolean).slice(0,n)}
+function vdWrap(c,txt,maxW){const w=String(txt).split(/\s+/),L=[];let cur='';for(const x of w){const t=cur?cur+' '+x:x;if(c.measureText(t).width>maxW&&cur){L.push(cur);cur=x}else cur=t}if(cur)L.push(cur);return L}
+function vdOpen(){try{closeModes()}catch(e){}
+  pg('🎬 صانع الفيديو','<p class="edh">اكتب فكرة الفيديو، وقاسم يكتب السيناريو ويرسم المشاهد ويحرّكها مع نصوص وموسيقى هادئة. هو فيديو بصور مولّدة بالذكاء الاصطناعي، مو توليد فيديو حقيقي.</p><textarea id="vdt" rows="4" placeholder="مثلاً: رحلة قطرة ماء من البحر إلى السحاب"></textarea><div class="edr"><label>المشاهد</label><select id="vdn"><option value="4">4 (حوالي 20 ث)</option><option value="6" selected>6 (حوالي 30 ث)</option><option value="8">8 (حوالي 40 ث)</option></select></div><div class="edr"><label>الشكل</label><select id="vda"><option value="v">عمودي (ريلز)</option><option value="h">أفقي</option><option value="s">مربع</option></select></div><div class="edr"><label>الأسلوب</label><select id="vds"><option value="cine">سينمائي</option><option value="real">واقعي</option><option value="anime">أنمي</option><option value="cartoon">كرتون 3D</option><option value="water">ألوان مائية</option><option value="art">رسم رقمي</option></select></div><label class="edc"><input type="checkbox" id="vdm" checked> موسيقى هادئة</label><button class="btn" onclick="vdGen()">ابدأ (4 نقاط)</button><div id="vdst" class="edh"></div><p class="edh">خلّي التطبيق مفتوحاً والشاشة مضاءة أثناء الصنع (حوالي دقيقتين).</p>')}
+const vdSt=t=>{const e=$('vdst');if(e)e.textContent=t};
+async function vdImg(prompt,w,h,seed){const urls=imgUrls(prompt,seed,w,h);
+  for(const u of urls){const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),45000);
+    try{const r=await fetch(u,{signal:ctl.signal});if(!r.ok)continue;const b=await r.blob();if(!/^image\//.test(b.type))continue;clearTimeout(tm);return await createImageBitmap(b)}catch(e){}clearTimeout(tm)}
+  return null}
+async function vdGen(){const t=($('vdt').value||'').trim();if(t.length<3){toast('اكتب فكرة الفيديو');return}
+  if(useLocal()||!navigator.onLine){toast('صانع الفيديو يحتاج إنترنت');return}
+  if(!spend(4))return;
+  const n=+$('vdn').value,asp=$('vda').value,sty=VSTY[$('vds').value]||'',mus=$('vdm').checked,D={v:[540,960],h:[960,540],s:[720,720]}[asp];
+  try{vdSt('1/3 قاسم يكتب السيناريو…');
+    const sys='أنت مخرج فيديوهات قصيرة. أعد JSON فقط بدون شرح: {"title":"عنوان قصير بالعربية","scenes":[{"cap":"نص التعليق بالعربية (حتى 14 كلمة)","img":"English image prompt: subject, setting, composition, lighting, colors"}]}. عدد المشاهد '+n+' بالضبط. اجعل القصة متسلسلة ومشوّقة، وكل مشهد وصفه مرئي ومحدد ومتناسق مع الباقي (نفس الشخصيات والألوان). لا تضع نصوصاً داخل الصور.';
+    const out=await streamTo(await planM(false),[{role:'system',content:sys},{role:'user',content:t}],'low',2200,()=>{},[{temperature:.9}]);
+    const a=out.indexOf('{'),b=out.lastIndexOf('}');if(a<0||b<=a)throw new Error('رد غير مفهوم');
+    const j=JSON.parse(out.slice(a,b+1)),sc=vdClean(j,n);if(sc.length<2)throw new Error('لم يكتب سيناريو كافياً، جرّب فكرة أوضح');
+    const imgs2=[],seed0=Math.floor(Math.random()*1e6);
+    for(let i=0;i<sc.length;i+=2){vdSt('2/3 يرسم المشاهد '+(i+1)+(sc[i+1]?'-'+(i+2):'')+' من '+sc.length+'…');
+      const pr=await Promise.all([0,1].map(k=>sc[i+k]?vdImg(sc[i+k].img+', '+sty+', no text, no watermark',D[0],D[1],seed0+i+k):Promise.resolve(null)));imgs2[i]=pr[0];if(sc[i+1])imgs2[i+1]=pr[1]}
+    vdSt('3/3 يصنع الفيديو ويسجّله… لا تغلق التطبيق');
+    const blob=await vdRender({w:D[0],h:D[1],title:String(j.title||t).slice(0,60),scenes:sc,imgs:imgs2,music:mus,sd:3.6});
+    VD.blob=blob;const url=URL.createObjectURL(blob);
+    pg('🎬 فيديوك جاهز','<video src="'+url+'" controls playsinline style="width:100%;border-radius:14px;background:#000"></video><div class="row" style="gap:8px;margin-top:12px"><button class="btn" style="flex:1" onclick="vdSave()">حفظ بالجهاز</button><button class="btn s" style="flex:1" onclick="vdOpen()">فيديو جديد</button></div><div id="vdst" class="edh"></div><p class="edh">'+Math.round(blob.size/1024)+' KB · صيغة WebM. الصور التي لم تُولَّد (إن وُجدت) استُبدلت بخلفية ملوّنة.</p>')}
+  catch(e){refund(4);vdSt('تعذر: '+(e.message||e))}}
+function vdPad(ac,dest){const g=ac.createGain();g.gain.setValueAtTime(.0001,ac.currentTime);g.gain.exponentialRampToValueAtTime(.14,ac.currentTime+2.5);g.connect(dest);
+  [[220,.5],[277.18,.4],[329.63,.4],[164.81,.5]].forEach((f,i)=>{const o=ac.createOscillator(),og=ac.createGain(),l=ac.createOscillator(),lg=ac.createGain();o.type=i%2?'sine':'triangle';o.frequency.value=f[0];og.gain.value=f[1]*.5;l.frequency.value=.15+i*.05;lg.gain.value=.15;l.connect(lg);lg.connect(og.gain);o.connect(og);og.connect(g);o.start();l.start()})}
+function vdFrame(c,P,t){const W=P.w,H=P.h,I=2.2,D=P.sd,N=P.scenes.length,total=I+N*D+1.8,k=Math.floor((t-I)/D);
+  const bg=c.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#0b1020');bg.addColorStop(1,'#2a1a5e');c.fillStyle=bg;c.fillRect(0,0,W,H);c.direction='rtl';c.textAlign='center';
+  const cover=(im,sc,px,py,al)=>{if(!im)return;const r=Math.max(W/im.width,H/im.height)*sc,dw=im.width*r,dh=im.height*r;c.globalAlpha=al;c.drawImage(im,(W-dw)/2+px,(H-dh)/2+py,dw,dh);c.globalAlpha=1};
+  if(t<I){const u=Math.min(1,t/.8);c.fillStyle='#fff';c.globalAlpha=u;c.font='bold '+Math.round(W*.085)+'px system-ui,Tahoma,sans-serif';const L=vdWrap(c,P.title,W*.8);L.forEach((l,i)=>c.fillText(l,W/2,H/2+(i-(L.length-1)/2)*W*.11));c.font=Math.round(W*.04)+'px system-ui';c.fillStyle='#c9d3f0';c.fillText('قاسم · MOD0',W/2,H*.9);c.globalAlpha=1}
+  else if(k<N){const u=(t-I-k*D)/D,im=P.imgs[k],dir=k%2?-1:1;
+    if(k>0&&u<.15){const pi=P.imgs[k-1];cover(pi,1.16,-dir*-W*.02,0,1)}
+    if(im)cover(im,1.04+.14*u,dir*(u-.5)*W*.05,0,Math.min(1,u/.15));else{c.fillStyle='hsl('+(k*57%360)+',55%,32%)';c.fillRect(0,0,W,H);c.fillStyle='rgba(255,255,255,.18)';c.font='bold '+Math.round(W*.4)+'px system-ui';c.fillText(String(k+1),W/2,H/2+W*.14)}
+    const sh=c.createLinearGradient(0,H*.55,0,H);sh.addColorStop(0,'rgba(0,0,0,0)');sh.addColorStop(1,'rgba(0,0,0,.78)');c.fillStyle=sh;c.fillRect(0,H*.55,W,H*.45);
+    const a=Math.max(0,Math.min(1,(u-.06)/.16))*Math.min(1,(1-u)/.1+.2),slide=(1-Math.min(1,Math.max(0,(u-.06)/.16)))*30;
+    c.globalAlpha=a;c.fillStyle='#fff';c.font='bold '+Math.round(W*.058)+'px system-ui,Tahoma,sans-serif';const L=vdWrap(c,P.scenes[k].cap,W*.84),lh=W*.082;L.forEach((l,i)=>c.fillText(l,W/2,H*.82-(L.length-1)*lh/2+i*lh+slide));c.globalAlpha=1}
+  else{const u=Math.min(1,(t-I-N*D)/.6);c.globalAlpha=u;c.fillStyle='#fff';c.font='bold '+Math.round(W*.07)+'px system-ui,Tahoma,sans-serif';c.fillText('شكراً للمشاهدة',W/2,H/2);c.font=Math.round(W*.04)+'px system-ui';c.fillStyle='#c9d3f0';c.fillText('صُنع بتطبيق قاسم · MOD0',W/2,H/2+W*.1);c.globalAlpha=1}
+  c.fillStyle='rgba(255,255,255,.18)';c.fillRect(0,0,W,5);const g2=c.createLinearGradient(0,0,W,0);g2.addColorStop(0,'#5b8cff');g2.addColorStop(1,'#8b5cf6');c.fillStyle=g2;c.fillRect(0,0,W*Math.min(1,t/total),5);return total}
+function vdRender(P){return new Promise((res,rej)=>{
+  const cv=document.createElement('canvas');cv.width=P.w;cv.height=P.h;const c=cv.getContext('2d');
+  let stream;try{stream=cv.captureStream(30)}catch(e){rej(new Error('التسجيل من الشاشة غير مدعوم بهذا الجهاز'));return}
+  let ac2=null;if(P.music){try{ac2=new(window.AudioContext||window.webkitAudioContext)();const d=ac2.createMediaStreamDestination();vdPad(ac2,d);stream.addTrack(d.stream.getAudioTracks()[0])}catch(e){ac2=null}}
+  const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported(m));
+  if(!mime){rej(new Error('هذا الجهاز لا يدعم تسجيل الفيديو'));return}
+  const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:2000000}),ch=[];
+  rec.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data)};
+  rec.onstop=()=>{try{ac2&&ac2.close()}catch(e){}res(new Blob(ch,{type:'video/webm'}))};
+  rec.start(250);const st=performance.now();const total=2.2+P.scenes.length*P.sd+1.8;
+  (function f(){const t=(performance.now()-st)/1000;vdFrame(c,P,Math.min(t,total));vdSt('3/3 يسجّل الفيديو… '+Math.min(100,Math.round(t/total*100))+'%');if(t<total)requestAnimationFrame(f);else setTimeout(()=>rec.stop(),300)})()})}
+async function vdSave(){const b=VD.blob;if(!b)return;const P=PH(),name='qasim-'+Date.now()+'.webm';
+  if(P&&P.saveChunk){try{const u8=new Uint8Array(await b.arrayBuffer()),CH=3*131072;let first=true;
+    for(let i=0;i<u8.length;i+=CH){const part=u8.subarray(i,Math.min(u8.length,i+CH));let bin='';for(let k=0;k<part.length;k+=8192)bin+=String.fromCharCode.apply(null,part.subarray(k,k+8192));
+      await P.saveChunk({name,mime:'video/webm',data:btoa(bin),first,last:i+CH>=u8.length});first=false;vdSt('💾 جاري الحفظ '+Math.round(Math.min(100,(i+CH)/u8.length*100))+'%')}
+    vdSt('✅ تم الحفظ بمجلد Movies/Qasim');toast('تم حفظ الفيديو');return}catch(e){vdSt('تعذر الحفظ المباشر: '+(e.message||e))}}
+  try{const f=new File([b],name,{type:'video/webm'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){}
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();vdSt('إذا لم يبدأ التنزيل فالحفظ المباشر يحتاج نسخة التحكم الكامل أو الأساسية الجديدة.')}
 // ---------- الإرسال ----------
 const BST=[{type:'browser_search'}],IMGCOST=1;
 const SRCH=' لديك أداة بحث في الإنترنت: استخدمها عندما يتعلق السؤال بأحداث أو أخبار أو أسعار أو أشخاص ومناصب حالية أو إصدارات أو أي معلومة قد تكون تغيّرت بعد 2024 أو عندما لا تكون واثقاً، وابحث دائماً إذا طلب المستخدم ذلك. بعد البحث اذكر أسماء المصادر والتاريخ في آخر الجواب، وإذا تعارضت المصادر فاذكر ذلك. لا تبحث للشرح العام أو البرمجة أو الحسابات.';
@@ -1254,7 +1333,7 @@ async function send(){
     first=im.length?{role:'user',content:[{type:'text',text:tt},...im.map(s=>({type:'image_url',image_url:{url:s}}))]}:{role:'user',content:tt};
   const h=hist.slice(-6).map(m=>({role:m.role,content:m.content.length>1200?m.content.slice(0,1200)+'…':m.content}));
   const wantS=wm!=='off'&&!im.length&&(wm==='on'||mode!=='fast'||HOT.test(t));
-  const mkBase=nt=>IDENT+' التاريخ الآن: '+new Date().toLocaleString('en-GB')+'. '+SYS[mode]+(eco?' أجب باختصار شديد.':'')+(role!=='none'?' الدور المطلوب منك: '+ROLES[role][1]:'')+(cfg.ci?' تعليمات المستخدم: '+cfg.ci:'')+profTxt()+(wantS?SRCH+(wm==='on'?' ابحث دائماً قبل الجواب.':''):'')+(nt?'\n\nنتائج بحث حديثة من الإنترنت (اعتمد عليها لأنها أحدث من معلوماتك المدربة، وإذا تعارضت معها فالبحث هو الصحيح، واذكر المصادر بنهاية جوابك):\n'+nt:'');
+  const mkBase=nt=>IDENT+' التاريخ الآن: '+new Date().toLocaleString('en-GB')+'. '+SYS[mode]+(eco?' أجب باختصار شديد.':'')+(role!=='none'?' الدور المطلوب منك: '+ROLES[role][1]:'')+(im.length?VISP:'')+(cfg.ci?' تعليمات المستخدم: '+cfg.ci:'')+profTxt()+(wantS?SRCH+(wm==='on'?' ابحث دائماً قبل الجواب.':''):'')+(nt?'\n\nنتائج بحث حديثة من الإنترنت (اعتمد عليها لأنها أحدث من معلوماتك المدربة، وإذا تعارضت معها فالبحث هو الصحيح، واذكر المصادر بنهاية جوابك):\n'+nt:'');
   try{
     {
       const cb=v=>{out.innerHTML=(/\[\[/.test(v)?'🔄 يتحقق من التحديث…':md(v).trim())||THK2;$('msgs').scrollTop=1e9},M=await planM(im.length>0);
