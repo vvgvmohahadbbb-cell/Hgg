@@ -514,7 +514,7 @@ function typeStream(txt){const enc=new TextEncoder();let i=0;
     c.enqueue(enc.encode('data: '+JSON.stringify({choices:[{delta:{content:ch}}]})+'\n\n'));await sleep(16)}})}
 async function gasPost(body){
   const want=!!body.stream,b={...body};delete b.stream;let r;
-  try{r=await fetch(PU,{method:'POST',signal:ac.signal,body:JSON.stringify({path:'chat',dev:DEV,body:b})})}
+  try{r=await fetch(PU,{method:'POST',signal:(ac&&!ac.signal.aborted)?ac.signal:undefined,body:JSON.stringify({path:'chat',dev:DEV,body:b})})}
   catch(e){if(e.name==='AbortError')throw e;return new Response(JSON.stringify({error:{message:navigator.onLine?'تعذر الوصول للسكربت (503): تأكد أن نشره للجميع وأن الرابط صحيح، أو افحص الاتصال من الإعدادات':'لا يوجد اتصال بالإنترنت'}}),{status:503})}
   let j={};try{j=await r.json()}catch(e){}
   const st=+j.status||502,d=j.data||{error:{message:j.error||'خطأ في الخادم'}};
@@ -1235,79 +1235,16 @@ async function summChat(){try{closeModes()}catch(e){}const c=cur();if(!c||c.msgs
     window.SUMM=out;pg('🧾 ملخص المحادثة','<div class="qzw" style="line-height:1.9">'+md(out)+'</div><div class="row" style="gap:8px;margin-top:12px"><button class="btn s" style="flex:1" onclick="summCopy()">نسخ</button><button class="btn s" style="flex:1" onclick="pgClose()">إغلاق</button></div>')}
   catch(e){refund(2);pg('🧾 ملخص المحادثة','<p class="edh">تعذر: '+esc(e.message||e)+'</p>')}}
 
-async function pingServer(){const o=$('pgst');if(!o)return;o.textContent='⏳ جاري الفحص…';const t0=Date.now();
+async function pingServer(){const o=$('pgst');if(!o)return;o.textContent='⏳ جاري الفحص…';
   if(!navigator.onLine){o.textContent='❌ لا يوجد إنترنت بالجوال';return}
-  try{const r=await fetch(PU+'?path=chat',{cache:'no-store'}),tx=await r.text(),ms=Date.now()-t0;
-    if(/غير مضبوط/.test(tx))o.textContent='⚠️ السكربت يشتغل لكن مفاتيح Groq غير مضبوطة (GROQ_KEYS بـ Script properties)';
-    else if(r.ok&&tx.length<4000&&/^\s*[\[{"]/.test(tx))o.textContent='✅ السكربت يرد ('+ms+'ms). إذا الذكاء ما يجاوب فالمشكلة بالمفاتيح أو حصة Groq.';
-    else o.textContent='⚠️ رد غير متوقع من الرابط. غالباً النشر ليس «أي شخص» أو تم حذفه: أعد نشره بإصدار جديد.'}
-  catch(e){o.textContent='❌ لا أستطيع الوصول للسكربت. تحقق من: الرابط بـ config، النشر للجميع (Anyone)، أو انتهاء حصة جوجل اليومية (جرّب بعد ساعات).'}}
-
-const VISP=' بروتوكول تحليل الصور: لاحظ التفاصيل بدقة قبل الجواب. ابدأ بما تراه فعلاً (العناصر والنصوص حرفياً والأرقام والألوان) ثم أجب عن سؤال المستخدم. إذا كانت الصورة مسألة (رياضيات أو فيزياء أو جدول أو كود) فاستخرج المعطيات منها بدقة وأعد كتابتها ثم حلّها خطوة بخطوة وتحقق من الجواب. إذا كانت وثيقة أو لقطة شاشة فلخّص وأخرج النقاط المهمة. لا تخمّن ما لا يظهر؛ وإذا كانت الصورة غير واضحة أو مقطوعة فقل ذلك واطلب صورة أوضح. عند وجود عدة صور فقارن بينها واربط ما بينها.';
-const IQ=[['📖 استخرج النص','استخرج كل النص الظاهر بالصورة حرفياً وبنفس الترتيب والتنسيق.'],['🧠 اشرح الصورة','اشرح لي ما في الصورة بالتفصيل وما دلالته.'],['🧮 حل المسألة','هذه مسألة بالصورة: استخرج المعطيات بدقة ثم حلّها خطوة بخطوة وتحقق من الجواب.'],['🌍 ترجم النص','ترجم كل النص الظاهر بالصورة إلى العربية مع الحفاظ على ترتيبه.'],['🎨 قيّم التصميم','قيّم تصميم هذه الصورة بصراحة: نقاط القوة والضعف وتحسينات محددة.'],['🪄 صف للتوليد','اكتب وصفاً إنجليزياً دقيقاً (prompt) يعيد توليد صورة مشابهة بالذكاء الاصطناعي.'],['🔍 ماذا ترى؟','صف ما تراه بدقة ثم أخبرني بأي شيء غير عادي أو مهم بها.']];
-function iq(i){$('inp').value=IQ[i][1];send()}
-
-// ---------- صانع الفيديو بالذكاء الاصطناعي (سيناريو + صور + حركة + موسيقى) ----------
-let VD={blob:null};
-const VSTY={cine:'cinematic still, dramatic lighting, shallow depth of field, color graded',real:'ultra realistic photograph, natural light, sharp focus',anime:'high quality anime illustration, vibrant colors, clean lines',cartoon:'3D cartoon animation style, colorful, soft lighting',water:'soft watercolor illustration, gentle colors',art:'digital painting, rich colors, detailed concept art'};
-function vdClean(j,n){const a=(j&&Array.isArray(j.scenes))?j.scenes:[];return a.map(x=>x&&x.cap&&x.img?{cap:String(x.cap).slice(0,120),img:String(x.img).slice(0,300)}:null).filter(Boolean).slice(0,n)}
-function vdWrap(c,txt,maxW){const w=String(txt).split(/\s+/),L=[];let cur='';for(const x of w){const t=cur?cur+' '+x:x;if(c.measureText(t).width>maxW&&cur){L.push(cur);cur=x}else cur=t}if(cur)L.push(cur);return L}
-function vdOpen(){try{closeModes()}catch(e){}
-  pg('🎬 صانع الفيديو','<p class="edh">اكتب فكرة الفيديو، وقاسم يكتب السيناريو ويرسم المشاهد ويحرّكها مع نصوص وموسيقى هادئة. هو فيديو بصور مولّدة بالذكاء الاصطناعي، مو توليد فيديو حقيقي.</p><textarea id="vdt" rows="4" placeholder="مثلاً: رحلة قطرة ماء من البحر إلى السحاب"></textarea><div class="edr"><label>المشاهد</label><select id="vdn"><option value="4">4 (حوالي 20 ث)</option><option value="6" selected>6 (حوالي 30 ث)</option><option value="8">8 (حوالي 40 ث)</option></select></div><div class="edr"><label>الشكل</label><select id="vda"><option value="v">عمودي (ريلز)</option><option value="h">أفقي</option><option value="s">مربع</option></select></div><div class="edr"><label>الأسلوب</label><select id="vds"><option value="cine">سينمائي</option><option value="real">واقعي</option><option value="anime">أنمي</option><option value="cartoon">كرتون 3D</option><option value="water">ألوان مائية</option><option value="art">رسم رقمي</option></select></div><label class="edc"><input type="checkbox" id="vdm" checked> موسيقى هادئة</label><button class="btn" onclick="vdGen()">ابدأ (4 نقاط)</button><div id="vdst" class="edh"></div><p class="edh">خلّي التطبيق مفتوحاً والشاشة مضاءة أثناء الصنع (حوالي دقيقتين).</p>')}
-const vdSt=t=>{const e=$('vdst');if(e)e.textContent=t};
-async function vdImg(prompt,w,h,seed){const urls=imgUrls(prompt,seed,w,h);
-  for(const u of urls){const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),45000);
-    try{const r=await fetch(u,{signal:ctl.signal});if(!r.ok)continue;const b=await r.blob();if(!/^image\//.test(b.type))continue;clearTimeout(tm);return await createImageBitmap(b)}catch(e){}clearTimeout(tm)}
-  return null}
-async function vdGen(){const t=($('vdt').value||'').trim();if(t.length<3){toast('اكتب فكرة الفيديو');return}
-  if(useLocal()||!navigator.onLine){toast('صانع الفيديو يحتاج إنترنت');return}
-  if(!spend(4))return;
-  const n=+$('vdn').value,asp=$('vda').value,sty=VSTY[$('vds').value]||'',mus=$('vdm').checked,D={v:[540,960],h:[960,540],s:[720,720]}[asp];
-  try{vdSt('1/3 قاسم يكتب السيناريو…');
-    const sys='أنت مخرج فيديوهات قصيرة. أعد JSON فقط بدون شرح: {"title":"عنوان قصير بالعربية","scenes":[{"cap":"نص التعليق بالعربية (حتى 14 كلمة)","img":"English image prompt: subject, setting, composition, lighting, colors"}]}. عدد المشاهد '+n+' بالضبط. اجعل القصة متسلسلة ومشوّقة، وكل مشهد وصفه مرئي ومحدد ومتناسق مع الباقي (نفس الشخصيات والألوان). لا تضع نصوصاً داخل الصور.';
-    const out=await streamTo(await planM(false),[{role:'system',content:sys},{role:'user',content:t}],'low',2200,()=>{},[{temperature:.9}]);
-    const a=out.indexOf('{'),b=out.lastIndexOf('}');if(a<0||b<=a)throw new Error('رد غير مفهوم');
-    const j=JSON.parse(out.slice(a,b+1)),sc=vdClean(j,n);if(sc.length<2)throw new Error('لم يكتب سيناريو كافياً، جرّب فكرة أوضح');
-    const imgs2=[],seed0=Math.floor(Math.random()*1e6);
-    for(let i=0;i<sc.length;i+=2){vdSt('2/3 يرسم المشاهد '+(i+1)+(sc[i+1]?'-'+(i+2):'')+' من '+sc.length+'…');
-      const pr=await Promise.all([0,1].map(k=>sc[i+k]?vdImg(sc[i+k].img+', '+sty+', no text, no watermark',D[0],D[1],seed0+i+k):Promise.resolve(null)));imgs2[i]=pr[0];if(sc[i+1])imgs2[i+1]=pr[1]}
-    vdSt('3/3 يصنع الفيديو ويسجّله… لا تغلق التطبيق');
-    const blob=await vdRender({w:D[0],h:D[1],title:String(j.title||t).slice(0,60),scenes:sc,imgs:imgs2,music:mus,sd:3.6});
-    VD.blob=blob;const url=URL.createObjectURL(blob);
-    pg('🎬 فيديوك جاهز','<video src="'+url+'" controls playsinline style="width:100%;border-radius:14px;background:#000"></video><div class="row" style="gap:8px;margin-top:12px"><button class="btn" style="flex:1" onclick="vdSave()">حفظ بالجهاز</button><button class="btn s" style="flex:1" onclick="vdOpen()">فيديو جديد</button></div><div id="vdst" class="edh"></div><p class="edh">'+Math.round(blob.size/1024)+' KB · صيغة WebM. الصور التي لم تُولَّد (إن وُجدت) استُبدلت بخلفية ملوّنة.</p>')}
-  catch(e){refund(4);vdSt('تعذر: '+(e.message||e))}}
-function vdPad(ac,dest){const g=ac.createGain();g.gain.setValueAtTime(.0001,ac.currentTime);g.gain.exponentialRampToValueAtTime(.14,ac.currentTime+2.5);g.connect(dest);
-  [[220,.5],[277.18,.4],[329.63,.4],[164.81,.5]].forEach((f,i)=>{const o=ac.createOscillator(),og=ac.createGain(),l=ac.createOscillator(),lg=ac.createGain();o.type=i%2?'sine':'triangle';o.frequency.value=f[0];og.gain.value=f[1]*.5;l.frequency.value=.15+i*.05;lg.gain.value=.15;l.connect(lg);lg.connect(og.gain);o.connect(og);og.connect(g);o.start();l.start()})}
-function vdFrame(c,P,t){const W=P.w,H=P.h,I=2.2,D=P.sd,N=P.scenes.length,total=I+N*D+1.8,k=Math.floor((t-I)/D);
-  const bg=c.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#0b1020');bg.addColorStop(1,'#2a1a5e');c.fillStyle=bg;c.fillRect(0,0,W,H);c.direction='rtl';c.textAlign='center';
-  const cover=(im,sc,px,py,al)=>{if(!im)return;const r=Math.max(W/im.width,H/im.height)*sc,dw=im.width*r,dh=im.height*r;c.globalAlpha=al;c.drawImage(im,(W-dw)/2+px,(H-dh)/2+py,dw,dh);c.globalAlpha=1};
-  if(t<I){const u=Math.min(1,t/.8);c.fillStyle='#fff';c.globalAlpha=u;c.font='bold '+Math.round(W*.085)+'px system-ui,Tahoma,sans-serif';const L=vdWrap(c,P.title,W*.8);L.forEach((l,i)=>c.fillText(l,W/2,H/2+(i-(L.length-1)/2)*W*.11));c.font=Math.round(W*.04)+'px system-ui';c.fillStyle='#c9d3f0';c.fillText('قاسم · MOD0',W/2,H*.9);c.globalAlpha=1}
-  else if(k<N){const u=(t-I-k*D)/D,im=P.imgs[k],dir=k%2?-1:1;
-    if(k>0&&u<.15){const pi=P.imgs[k-1];cover(pi,1.16,-dir*-W*.02,0,1)}
-    if(im)cover(im,1.04+.14*u,dir*(u-.5)*W*.05,0,Math.min(1,u/.15));else{c.fillStyle='hsl('+(k*57%360)+',55%,32%)';c.fillRect(0,0,W,H);c.fillStyle='rgba(255,255,255,.18)';c.font='bold '+Math.round(W*.4)+'px system-ui';c.fillText(String(k+1),W/2,H/2+W*.14)}
-    const sh=c.createLinearGradient(0,H*.55,0,H);sh.addColorStop(0,'rgba(0,0,0,0)');sh.addColorStop(1,'rgba(0,0,0,.78)');c.fillStyle=sh;c.fillRect(0,H*.55,W,H*.45);
-    const a=Math.max(0,Math.min(1,(u-.06)/.16))*Math.min(1,(1-u)/.1+.2),slide=(1-Math.min(1,Math.max(0,(u-.06)/.16)))*30;
-    c.globalAlpha=a;c.fillStyle='#fff';c.font='bold '+Math.round(W*.058)+'px system-ui,Tahoma,sans-serif';const L=vdWrap(c,P.scenes[k].cap,W*.84),lh=W*.082;L.forEach((l,i)=>c.fillText(l,W/2,H*.82-(L.length-1)*lh/2+i*lh+slide));c.globalAlpha=1}
-  else{const u=Math.min(1,(t-I-N*D)/.6);c.globalAlpha=u;c.fillStyle='#fff';c.font='bold '+Math.round(W*.07)+'px system-ui,Tahoma,sans-serif';c.fillText('شكراً للمشاهدة',W/2,H/2);c.font=Math.round(W*.04)+'px system-ui';c.fillStyle='#c9d3f0';c.fillText('صُنع بتطبيق قاسم · MOD0',W/2,H/2+W*.1);c.globalAlpha=1}
-  c.fillStyle='rgba(255,255,255,.18)';c.fillRect(0,0,W,5);const g2=c.createLinearGradient(0,0,W,0);g2.addColorStop(0,'#5b8cff');g2.addColorStop(1,'#8b5cf6');c.fillStyle=g2;c.fillRect(0,0,W*Math.min(1,t/total),5);return total}
-function vdRender(P){return new Promise((res,rej)=>{
-  const cv=document.createElement('canvas');cv.width=P.w;cv.height=P.h;const c=cv.getContext('2d');
-  let stream;try{stream=cv.captureStream(30)}catch(e){rej(new Error('التسجيل من الشاشة غير مدعوم بهذا الجهاز'));return}
-  let ac2=null;if(P.music){try{ac2=new(window.AudioContext||window.webkitAudioContext)();const d=ac2.createMediaStreamDestination();vdPad(ac2,d);stream.addTrack(d.stream.getAudioTracks()[0])}catch(e){ac2=null}}
-  const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported(m));
-  if(!mime){rej(new Error('هذا الجهاز لا يدعم تسجيل الفيديو'));return}
-  const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:2000000}),ch=[];
-  rec.ondataavailable=e=>{if(e.data&&e.data.size)ch.push(e.data)};
-  rec.onstop=()=>{try{ac2&&ac2.close()}catch(e){}res(new Blob(ch,{type:'video/webm'}))};
-  rec.start(250);const st=performance.now();const total=2.2+P.scenes.length*P.sd+1.8;
-  (function f(){const t=(performance.now()-st)/1000;vdFrame(c,P,Math.min(t,total));vdSt('3/3 يسجّل الفيديو… '+Math.min(100,Math.round(t/total*100))+'%');if(t<total)requestAnimationFrame(f);else setTimeout(()=>rec.stop(),300)})()})}
-async function vdSave(){const b=VD.blob;if(!b)return;const P=PH(),name='qasim-'+Date.now()+'.webm';
-  if(P&&P.saveChunk){try{const u8=new Uint8Array(await b.arrayBuffer()),CH=3*131072;let first=true;
-    for(let i=0;i<u8.length;i+=CH){const part=u8.subarray(i,Math.min(u8.length,i+CH));let bin='';for(let k=0;k<part.length;k+=8192)bin+=String.fromCharCode.apply(null,part.subarray(k,k+8192));
-      await P.saveChunk({name,mime:'video/webm',data:btoa(bin),first,last:i+CH>=u8.length});first=false;vdSt('💾 جاري الحفظ '+Math.round(Math.min(100,(i+CH)/u8.length*100))+'%')}
-    vdSt('✅ تم الحفظ بمجلد Movies/Qasim');toast('تم حفظ الفيديو');return}catch(e){vdSt('تعذر الحفظ المباشر: '+(e.message||e))}}
-  try{const f=new File([b],name,{type:'video/webm'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){}
-  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();vdSt('إذا لم يبدأ التنزيل فالحفظ المباشر يحتاج نسخة التحكم الكامل أو الأساسية الجديدة.')}
+  let g='';try{const r=await fetch(PU+'?path=chat',{cache:'no-store'}),tx=await r.text();g=/غير مضبوط/.test(tx)?'GET: السكربت يرد لكن GROQ_KEYS غير مضبوطة':(r.ok?'GET: ✅ يرد':'GET: ⚠️ حالة '+r.status)}catch(e){o.textContent='❌ لا أستطيع الوصول للسكربت. تحقق من الرابط بـ config والنشر (Anyone) أو انتهاء حصة جوجل اليومية.';return}
+  let p='';try{const t0=Date.now(),r=await fetch(PU,{method:'POST',body:JSON.stringify({path:'chat',dev:'ping',body:{model:'openai/gpt-oss-20b',messages:[{role:'user',content:'قل: تمام'}],max_completion_tokens:30,reasoning_effort:'low'}})}),tx=await r.text();let j={};try{j=JSON.parse(tx)}catch(e){}
+    const ms=Date.now()-t0,st=+j.status;
+    if(st===200)p='POST (الذكاء الفعلي): ✅ يجاوب ('+ms+'ms)';
+    else if(st)p='POST: ❌ حالة '+st+' — '+String((j.data&&j.data.error&&j.data.error.message)||j.error||'').slice(0,120);
+    else p='POST: ⚠️ رد ليس JSON (غالباً صفحة خطأ من جوجل): '+tx.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,110)}
+  catch(e){p='POST: ❌ فشل الإرسال ('+(e&&e.message||e)+')'}
+  o.textContent=g+'\n'+p}
 // ---------- الإرسال ----------
 const BST=[{type:'browser_search'}],IMGCOST=1;
 const SRCH=' لديك أداة بحث في الإنترنت: استخدمها عندما يتعلق السؤال بأحداث أو أخبار أو أسعار أو أشخاص ومناصب حالية أو إصدارات أو أي معلومة قد تكون تغيّرت بعد 2024 أو عندما لا تكون واثقاً، وابحث دائماً إذا طلب المستخدم ذلك. بعد البحث اذكر أسماء المصادر والتاريخ في آخر الجواب، وإذا تعارضت المصادر فاذكر ذلك. لا تبحث للشرح العام أو البرمجة أو الحسابات.';
