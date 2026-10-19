@@ -19,7 +19,7 @@ input{width:100%;background:#0f1424;color:var(--txt);border:1px solid var(--line
 .row{display:flex;gap:8px}.row .btn{margin-top:8px}
 summary{font-weight:600;cursor:pointer}small.t{color:var(--mut);display:block;margin-top:6px;font-size:12px;line-height:1.6}
 </style></head><body>
-<h1>📦 باني الألعاب</h1><p class="sub">اختر ZIP لعبتك (ويب أو مشروع Godot 4)، يرفعها ويبنيها APK</p>
+<h1>📦 باني الألعاب</h1><p class="sub">اختر أي ZIP (ويب، Godot 4، Flutter، Android Studio)، يرفعه ويبنيه APK</p>
 <div class="card">
 <label>اسم التطبيق (اختياري)</label><input id="nm" placeholder="لو تركته فاضي ياخذ اسم الملف" maxlength="30">
 <button class="btn" id="pick" onclick="document.getElementById('zf').click()">📦 اختر ZIP</button>
@@ -67,15 +67,21 @@ async function zipInflate(x){
   return new Uint8Array(await new Response(new Blob([x.raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer())}
 const b64=u=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]||'');r.onerror=()=>no(new Error('تعذّرت القراءة'));r.readAsDataURL(new Blob([u]))});
 function prepList(entries){
-  let list=entries.filter(x=>x.name&&!/(^|\/)(__MACOSX|\.DS_Store|Thumbs\.db)(\/|$)/i.test(x.name)&&!/(^|\/)\.(git|github|godot)(\/|$)/i.test(x.name)&&!/(^|\/)\.\.?(\/|$)/.test(x.name)&&!x.name.startsWith('/'));
+  let list=entries.filter(x=>x.name&&!/(^|\/)(__MACOSX|\.DS_Store|Thumbs\.db)(\/|$)/i.test(x.name)&&!/(^|\/)\.(git|github|godot|gradle|idea|dart_tool)(\/|$)/i.test(x.name)&&!/(^|\/)local\.properties$/.test(x.name)&&!/(^|\/)\.\.?(\/|$)/.test(x.name)&&!x.name.startsWith('/'));
   const depth=x=>x.name.split('/').length;
-  const pg=list.filter(x=>/(^|\/)project\.godot$/.test(x.name)).sort((a,b)=>depth(a)-depth(b))[0];
-  if(pg){const pre=pg.name.slice(0,-13);list=list.filter(x=>x.name.startsWith(pre));list.forEach(x=>x.name=x.name.slice(pre.length));return {list,kind:'godot'}}
-  if(!list.some(x=>x.name==='index.html')){
-    const c=list.filter(x=>/(^|\/)index\.html$/.test(x.name)).sort((a,b)=>depth(a)-depth(b))[0];
-    if(!c)throw new Error('ما لقيت index.html (لعبة ويب) ولا project.godot (مشروع Godot) داخل الملف');
-    const pre=c.name.slice(0,-10);list=list.filter(x=>x.name.startsWith(pre));list.forEach(x=>x.name=x.name.slice(pre.length))}
-  return {list,kind:'web'}}
+  const strip=(m,len)=>{const pre=m.name.slice(0,-len);list=list.filter(x=>x.name.startsWith(pre));list.forEach(x=>x.name=x.name.slice(pre.length))};
+  const find=re=>list.filter(x=>re.test(x.name)).sort((a,b)=>depth(a)-depth(b))[0];
+  let m=find(/(^|\/)project\.godot$/);
+  if(m){strip(m,13);return {list,kind:'godot'}}
+  m=find(/(^|\/)pubspec\.yaml$/);
+  if(m){strip(m,12);list=list.filter(x=>!/^build\//.test(x.name));return {list,kind:'flutter'}}
+  m=find(/(^|\/)(settings\.gradle(\.kts)?|gradlew)$/);
+  if(m){strip(m,m.name.split('/').pop().length);list=list.filter(x=>!/^(app\/)?build\//.test(x.name));return {list,kind:'gradle'}}
+  m=find(/(^|\/)index\.html$/);
+  if(m){strip(m,10);return {list,kind:'web'}}
+  m=find(/\.html?$/i);
+  if(m){strip(m,m.name.split('/').pop().length);const h=list.find(x=>/\.html?$/i.test(x.name)&&x.name.indexOf('/')<0);if(h)h.name='index.html';return {list,kind:'web'}}
+  throw new Error('ما عرفت نوع المشروع. المدعوم: لعبة ويب (html)، Godot 4 (project.godot)، Flutter (pubspec.yaml)، مشروع Android Studio (gradlew أو settings.gradle)')}
 async function uploadZip(cfg,buf,name,say){
   say('📦 يقرأ الملف…',2);
   const pl=prepList(await zipRead(buf)),list=pl.list,kind=pl.kind;
@@ -86,6 +92,7 @@ async function uploadZip(cfg,buf,name,say){
     if(cv<5)throw new Error('هذا مشروع Godot 3، المدعوم Godot 4 فقط');
     gv=((pt.match(/config\/features\s*=\s*PackedStringArray\(\s*"(\d+\.\d+)"/)||[])[1]||'4.3')+'.0';
     say('🎮 مشروع Godot '+gv.slice(0,-2)+' — '+list.length+' ملف',3)}
+  else say('🔎 النوع: '+({flutter:'Flutter',gradle:'Android Studio',web:'ويب'}[kind])+' — '+list.length+' ملف',3);
   const nm=String(name||'').replace(/[^\p{L}\p{N} _-]/gu,'').trim().slice(0,30)||'game';
   const slug='g'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   say('🔎 يتحقق من المستودع…',4);
@@ -103,7 +110,7 @@ async function uploadZip(cfg,buf,name,say){
   const cm=await ghCall(cfg,'/git/commits','POST',{message:'game '+slug,tree:tr.sha,parents:[head]});
   await ghCall(cfg,'/git/refs/heads/'+branch,'PATCH',{sha:cm.sha});
   say('🚀 يشغّل البناء…',90);
-  const ts=Date.now(),wf=kind==='godot'?'godot-apk.yml':'game-apk.yml';
+  const ts=Date.now(),wf={godot:'godot-apk.yml',flutter:'flutter-apk.yml',gradle:'gradle-apk.yml',web:'game-apk.yml'}[kind];
   try{await ghCall(cfg,'/actions/workflows/'+wf+'/dispatches','POST',{ref:branch,inputs:kind==='godot'?{slug,name:nm,godot:gv}:{slug,name:nm}})}
   catch(e){throw new Error(e.message+' — تأكد إن ملف '+wf+' موجود بالمستودع')}
   return {slug,name:nm,ts,files:list.length,wf,kind}}
